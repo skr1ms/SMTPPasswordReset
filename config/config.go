@@ -1,0 +1,90 @@
+package config
+
+import (
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/joho/godotenv"
+)
+
+type Config struct {
+	ServerConfig    ServerConfig
+	DatabaseConfig  DatabaseConfig
+	AuthConfig      AuthConfig
+	SMTPConfig      SMTPConfig
+	RecaptchaConfig RecaptchaConfig
+}
+
+type ServerConfig struct {
+	Port string
+}
+
+type DatabaseConfig struct {
+	URL string
+}
+
+type AuthConfig struct {
+	AccessTokenSecret     string
+	RefreshTokenSecret    string
+	PasswordResetTokenTTL time.Duration
+}
+
+type SMTPConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	From     string
+}
+
+type RecaptchaConfig struct {
+	SecretKey string
+	SiteKey   string
+}
+
+func NewConfig() *Config {
+	_ = godotenv.Load()
+
+	return &Config{
+		ServerConfig: ServerConfig{
+			Port: getEnv("SERVER_PORT", "3000"),
+		},
+		DatabaseConfig: DatabaseConfig{
+			URL: getEnv("DATABASE_URL", "postgres://user:pass@localhost:5432/db"),
+		},
+		AuthConfig: AuthConfig{
+			AccessTokenSecret:     getEnv("ACCESS_TOKEN_SECRET", "default_access_secret"),
+			RefreshTokenSecret:    getEnv("REFRESH_TOKEN_SECRET", "default_refresh_secret"),
+			PasswordResetTokenTTL: 1 * time.Hour,
+		},
+		SMTPConfig: SMTPConfig{
+			Host:     getEnv("SMTP_HOST", "smtp.example.com"),
+			Port:     getEnvAsInt("SMTP_PORT", 587),
+			Username: getEnv("SMTP_USERNAME", "user@example.com"),
+			Password: getEnv("SMTP_PASSWORD", "password"),
+			From:     getEnv("SMTP_FROM", "noreply@example.com"),
+		},
+		RecaptchaConfig: RecaptchaConfig{
+			SecretKey: getEnv("RECAPTCHA_SECRET_KEY", "default_recaptcha_secret"),
+			SiteKey:   getEnv("RECAPTCHA_SITE_KEY", "default_recaptcha_site"),
+		},
+	}
+}
+
+// Вспомогательные функции для чтения env с дефолтными значениями
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvAsInt(key string, defaultValue int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
