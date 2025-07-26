@@ -65,9 +65,9 @@ func NewConfig() *Config {
 		SMTPConfig: SMTPConfig{
 			Host:     getEnv("SMTP_HOST", "smtp.yandex.com"),
 			Port:     getEnvAsInt("SMTP_PORT", 465),
-			Username: getEnv("SMTP_USERNAME", "ResetPassword@doyoupaint.com"),
-			Password: getEnv("SMTP_PASSWORD", "gprcnfxfvxnlzcbm"),
-			From:     getEnv("SMTP_FROM", "ResetPassword@doyoupaint.com"),
+			Username: getEnv("SMTP_USERNAME", "login@companyDomain"),
+			Password: getEnv("SMTP_PASSWORD", "default_password"),
+			From:     getEnv("SMTP_FROM", "login@companyDomain"),
 			SSL:      getEnvAsBool("SMTP_SSL", true),
 		},
 		RecaptchaConfig: RecaptchaConfig{
