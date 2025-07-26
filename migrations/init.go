@@ -1,7 +1,7 @@
 package migrations
 
 import (
-	"os/user"
+	"github.com/skr1ms/SMTPPasswordReset/internal/user"
 
 	"github.com/rs/zerolog/log"
 	"github.com/skr1ms/SMTPPasswordReset/config"

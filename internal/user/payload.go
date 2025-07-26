@@ -2,7 +2,8 @@ package user
 
 // ForgotPasswordRequest структура для запроса на сброс пароля
 type ForgotPasswordRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Email   string `json:"email" validate:"required,email"`
+	// Captcha string `json:"captcha" validate:"required"`
 }
 
 // ResetPasswordRequest структура для запроса на обновление пароля

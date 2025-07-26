@@ -10,8 +10,11 @@ import (
 	"github.com/skr1ms/SMTPPasswordReset/config"
 	"github.com/skr1ms/SMTPPasswordReset/internal/auth"
 	"github.com/skr1ms/SMTPPasswordReset/internal/user"
+	"github.com/skr1ms/SMTPPasswordReset/migrations"
 	"github.com/skr1ms/SMTPPasswordReset/pkg/db"
 	"github.com/skr1ms/SMTPPasswordReset/pkg/jwt"
+	"github.com/skr1ms/SMTPPasswordReset/pkg/mail"
+	"github.com/skr1ms/SMTPPasswordReset/pkg/recaptcha"
 )
 
 func main() {
@@ -20,6 +23,7 @@ func main() {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
+	migrations.Init(cfg)
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
@@ -31,29 +35,31 @@ func main() {
 	}))
 
 	app.Use(recover.New())
+	api := app.Group("/api")
 
 	// repository
 	authRepository := auth.NewAuthRepository(database.DB)
+	userRepository := user.NewUserRepository(database.DB)
 
 	// service
 	jwt := jwt.NewJWT(cfg.AuthConfig.AccessTokenSecret, cfg.AuthConfig.RefreshTokenSecret)
-	authService := auth.NewAuthService(authRepository)
+	mailSender := mail.NewMailer(cfg, &logger)
+	recaptcha := recaptcha.NewVerifier(cfg.RecaptchaConfig.SecretKey, 0.5)
+	authService := auth.NewAuthService(authRepository, jwt)
+	userService := user.NewUserService(userRepository, recaptcha, jwt, mailSender, cfg)
 
 	// handler
-	auth.NewAuthHandler(app, auth.AuthHandlerDeps{
-		Config:         cfg,
-		AuthService:    authService,
-		AuthRepository: authRepository,
-		Logger:         &logger,
-		Jwt:            jwt,
+	auth.NewAuthHandler(api, auth.AuthHandlerDeps{
+		Config:      cfg,
+		AuthService: authService,
+		Logger:      &logger,
 	})
 
-	user.NewUserHandler(app, user.UserHandlerDeps{
-		UserRepository: user.NewUserRepository(database.DB),
-		Logger:         logger,
-		// MailSender:     mailSender,
-		Jwt:            jwt,
+	user.NewUserHandler(api, user.UserHandlerDeps{
+		Config:      cfg,
+		UserService: userService,
+		Logger:      &logger,
 	})
 
-	app.Listen(cfg.ServerConfig.Port)
+	app.Listen(":" + cfg.ServerConfig.Port)
 }
