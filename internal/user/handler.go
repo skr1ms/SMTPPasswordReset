@@ -1,6 +1,8 @@
 package user
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog"
 	"github.com/skr1ms/SMTPPasswordReset/config"
@@ -12,7 +14,6 @@ type UserHandlerDeps struct {
 	Config      *config.Config
 	UserService *UserService
 	Jwt         *jwt.JWT
-	Logger      *zerolog.Logger
 }
 
 type UserHandler struct {
@@ -33,24 +34,25 @@ func NewUserHandler(router fiber.Router, deps UserHandlerDeps) {
 
 // ForgotPassword обрабатывает запрос на сброс пароля
 func (h *UserHandler) ForgotPassword(c *fiber.Ctx) error {
+	log := zerolog.Ctx(c.UserContext())
 	var reqPayload ForgotPasswordRequest
 	if err := c.BodyParser(&reqPayload); err != nil {
-		h.deps.Logger.Error().Err(err).Msg("Failed to parse request body")
+		log.Error().Err(err).Msg("Failed to parse request body")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": ErrBadRequest.Error(),
+			"error": fmt.Errorf("failed to parse request body: %w", err).Error(),
 		})
 	}
 
 	if err := req.IsValid(&reqPayload); err != nil {
-		h.deps.Logger.Error().Err(err).Msg("Validation failed")
+		log.Error().Err(err).Msg("Validation failed")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   ErrValidationFailed.Error(),
+			"error":   fmt.Errorf("validation failed: %w", err).Error(),
 			"details": err.Error(),
 		})
 	}
 
 	if h.deps.Config.RecaptchaConfig.Environment == "development" {
-		h.deps.Logger.Warn().Msg("reCAPTCHA verification is disabled in development mode")
+		log.Warn().Msg("reCAPTCHA verification is disabled in development mode")
 	} else {
 		// valid, err := h.deps.UserService.Recaptcha.Verify(reqPayload.Captcha, "forgot_password")
 		// if err != nil || !valid {
@@ -60,9 +62,9 @@ func (h *UserHandler) ForgotPassword(c *fiber.Ctx) error {
 
 	err := h.deps.UserService.ForgotPassword(reqPayload.Email /*reqPayload.Captcha*/)
 	if err != nil {
-		h.deps.Logger.Error().Err(err).Msg("Failed to send email")
+		log.Error().Err(err).Msg("Failed to send email")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": ValidateError(err).Error(),
+			"error": fmt.Errorf("failed to send email: %w", err).Error(),
 		})
 	}
 
@@ -73,27 +75,28 @@ func (h *UserHandler) ForgotPassword(c *fiber.Ctx) error {
 
 // ResetPassword обрабатывает установку нового пароля
 func (h *UserHandler) ResetPassword(c *fiber.Ctx) error {
+	log := zerolog.Ctx(c.UserContext())
 	var reqPayload ResetPasswordRequest
 	if err := c.BodyParser(&reqPayload); err != nil {
-		h.deps.Logger.Error().Err(err).Msg("Failed to parse request body")
+		log.Error().Err(err).Msg("Failed to parse request body")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": ErrBadRequest.Error(),
+			"error": fmt.Errorf("failed to parse request body: %w", err).Error(),
 		})
 	}
 
 	if err := req.IsValid(reqPayload); err != nil {
-		h.deps.Logger.Error().Err(err).Msg("Validation failed")
+		log.Error().Err(err).Msg("Validation failed")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   ErrValidationFailed.Error(),
+			"error":   fmt.Errorf("validation failed: %w", err).Error(),
 			"details": err.Error(),
 		})
 	}
 
 	err := h.deps.UserService.ResetPassword(reqPayload.Token, reqPayload.NewPassword)
 	if err != nil {
-		h.deps.Logger.Error().Err(err).Msg("Failed to reset password")
+		log.Error().Err(err).Msg("Failed to reset password")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": ValidateError(err).Error(),
+			"error": fmt.Errorf("failed to reset password: %w", err).Error(),
 		})
 	}
 

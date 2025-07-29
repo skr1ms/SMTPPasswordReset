@@ -20,11 +20,12 @@ import (
 func main() {
 	cfg := config.NewConfig()
 	database := db.NewDB(cfg)
-	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	migrations.Init(cfg)
 	app := fiber.New()
+
+	app.Use(zerolog.New(os.Stdout).With().Timestamp().Logger())
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:  "*",
@@ -43,7 +44,7 @@ func main() {
 
 	// service
 	jwt := jwt.NewJWT(cfg.AuthConfig.AccessTokenSecret, cfg.AuthConfig.RefreshTokenSecret)
-	mailSender := mail.NewMailer(cfg, &logger)
+	mailSender := mail.NewMailer(cfg)
 	recaptcha := recaptcha.NewVerifier(cfg.RecaptchaConfig.SecretKey, 0.5)
 	authService := auth.NewAuthService(authRepository, jwt)
 	userService := user.NewUserService(userRepository, recaptcha, jwt, mailSender, cfg)
@@ -52,13 +53,11 @@ func main() {
 	auth.NewAuthHandler(api, auth.AuthHandlerDeps{
 		Config:      cfg,
 		AuthService: authService,
-		Logger:      &logger,
 	})
 
 	user.NewUserHandler(api, user.UserHandlerDeps{
 		Config:      cfg,
 		UserService: userService,
-		Logger:      &logger,
 	})
 
 	app.Listen(":" + cfg.ServerConfig.Port)

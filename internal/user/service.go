@@ -31,7 +31,7 @@ func NewUserService(userRepository *UserRepository, recaptcha *recaptcha.Verifie
 func (s *UserService) ForgotPassword(email string /*captcha string*/) error {
 	user, err := s.UserRepository.GetUserByEmail(email)
 	if err != nil {
-		return ErrUserNotFound
+		return fmt.Errorf("user not found: %w", err)
 	}
 
 	// Валидация reCAPTCHA
@@ -42,7 +42,7 @@ func (s *UserService) ForgotPassword(email string /*captcha string*/) error {
 
 	resetToken, err := s.Jwt.CreatePasswordResetToken(user.Id, user.Email)
 	if err != nil {
-		return ErrFailedToCreateToken
+		return fmt.Errorf("failed to create token: %w", err)
 	}
 
 	resetLink := fmt.Sprintf("%s/reset?token=%s",
@@ -51,7 +51,7 @@ func (s *UserService) ForgotPassword(email string /*captcha string*/) error {
 	)
 
 	if err := s.MailSender.SendResetPasswordEmail(user.Email, resetLink); err != nil {
-		return ErrFailedToSendEmail
+		return fmt.Errorf("failed to send email: %w", err)
 	}
 
 	return nil
@@ -60,16 +60,16 @@ func (s *UserService) ForgotPassword(email string /*captcha string*/) error {
 func (s *UserService) ResetPassword(token, newPassword string) error {
 	claims, err := s.Jwt.ValidatePasswordResetToken(token)
 	if err != nil {
-		return ErrInvalidToken
+		return fmt.Errorf("invalid token: %w", err)
 	}
 
 	hashedPassword, err := bcrypt.HashPassword(newPassword)
 	if err != nil {
-		return ErrFailedToHashPassword
+		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	if err := s.UserRepository.UpdatePassword(claims.UserID, hashedPassword); err != nil {
-		return ErrFailedToUpdatePassword
+		return fmt.Errorf("failed to update password: %w", err)
 	}
 
 	return nil

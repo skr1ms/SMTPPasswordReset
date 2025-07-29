@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"fmt"
+
 	"github.com/skr1ms/SMTPPasswordReset/internal/user"
 	"github.com/skr1ms/SMTPPasswordReset/pkg/bcrypt"
 	"github.com/skr1ms/SMTPPasswordReset/pkg/jwt"
@@ -21,15 +23,15 @@ func NewAuthService(repo *AuthRepository, jwt *jwt.JWT) *AuthService {
 func (s *AuthService) Register(email, password string) error {
 	userExists, err := s.AuthRepository.FindUserByEmail(email)
 	if err != nil {
-		return ErrUserAlreadyExists
+		return fmt.Errorf("failed to find user by email: %w", err)
 	}
 	if userExists != nil {
-		return ErrUserAlreadyExists
+		return fmt.Errorf("user already exists: %w", err)
 	}
 
 	password, err = bcrypt.HashPassword(password)
 	if err != nil {
-		return ErrFailedToHashPassword
+		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	user := &user.User{
@@ -46,12 +48,12 @@ func (s *AuthService) Login(email, password string) (*jwt.TokenPair, error) {
 	}
 
 	if err := bcrypt.CheckPassword(user.Password, password); err != nil {
-		return nil, ErrInvalidCredentials
+		return nil, fmt.Errorf("invalid credentials: %w", err)
 	}
 
 	tokens, err := s.Jwt.CreateTokenPair(user.Id, user.Email)
 	if err != nil {
-		return nil, ErrFailedToCreateTokens
+		return nil, fmt.Errorf("failed to create tokens: %w", err)
 	}
 
 	return tokens, nil
@@ -60,7 +62,7 @@ func (s *AuthService) Login(email, password string) (*jwt.TokenPair, error) {
 func (s *AuthService) RefreshTokens(refreshToken string) (*jwt.TokenPair, error) {
 	tokenPair, err := s.Jwt.RefreshTokens(refreshToken)
 	if err != nil {
-		return nil, ErrInvalidRefreshToken
+		return nil, fmt.Errorf("invalid refresh token: %w", err)
 	}
 	return tokenPair, nil
 }

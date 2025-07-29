@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog"
 	"github.com/skr1ms/SMTPPasswordReset/config"
@@ -10,7 +12,6 @@ import (
 type AuthHandlerDeps struct {
 	Config      *config.Config
 	AuthService *AuthService
-	Logger      *zerolog.Logger
 }
 
 type AuthHandler struct {
@@ -31,45 +32,59 @@ func NewAuthHandler(router fiber.Router, deps AuthHandlerDeps) {
 }
 
 func (handler *AuthHandler) Register(c *fiber.Ctx) error {
+	log := zerolog.Ctx(c.UserContext())
 	var reqPayload RegisterRequest
 	if err := c.BodyParser(&reqPayload); err != nil {
-		handler.deps.Logger.Error().Err(err).Msg(ErrBadRequest.Error())
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": ErrBadRequest.Error()})
+		log.Error().Err(err).Msg("Failed to parse request body")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Errorf("failed to parse request body: %w", err).Error(),
+		})
 	}
 
 	if err := req.IsValid(&reqPayload); err != nil {
-		handler.deps.Logger.Error().Err(err).Msg(ErrValidationFailed.Error())
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": ErrValidationFailed.Error()})
+		log.Error().Err(err).Msg("Validation failed")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Errorf("validation failed: %w", err).Error(),
+		})
 	}
 
 	err := handler.deps.AuthService.Register(reqPayload.Email, reqPayload.Password)
 	if err != nil {
-		handler.deps.Logger.Error().Err(err).Msg(ErrFailedToRegister.Error())
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": ValidateError(err).Error()})
+		log.Error().Err(err).Msg("Failed to register")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Errorf("failed to register: %w", err).Error(),
+		})
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "User registered successfully"})
 }
 
 func (handler *AuthHandler) Login(c *fiber.Ctx) error {
+	log := zerolog.Ctx(c.UserContext())
 	var reqPayload LoginRequest
 	if err := c.BodyParser(&reqPayload); err != nil {
-		handler.deps.Logger.Error().Err(err).Msg(ErrBadRequest.Error())
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": ErrBadRequest.Error()})
+		log.Error().Err(err).Msg("Failed to parse request body")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Errorf("failed to parse request body: %w", err).Error(),
+		})
 	}
 
 	if err := req.IsValid(reqPayload); err != nil {
-		handler.deps.Logger.Error().Err(err).Msg(ErrValidationFailed.Error())
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": ErrValidationFailed.Error()})
+		log.Error().Err(err).Msg("Validation failed")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Errorf("validation failed: %w", err).Error(),
+		})
 	}
 
 	tokens, err := handler.deps.AuthService.Login(reqPayload.Email, reqPayload.Password)
 	if err != nil {
-		handler.deps.Logger.Error().Err(err).Msg(ErrFailedToLogin.Error())
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": ValidateError(err).Error()})
+		log.Error().Err(err).Msg("Failed to login")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Errorf("failed to login: %w", err).Error(),
+		})
 	}
 
-	handler.deps.Logger.Info().Msg("Login successful")
+	log.Info().Msg("Login successful")
 
 	return c.JSON(fiber.Map{
 		"access_token":  tokens.AccessToken,
@@ -78,17 +93,22 @@ func (handler *AuthHandler) Login(c *fiber.Ctx) error {
 }
 
 func (handler *AuthHandler) RefreshTokens(c *fiber.Ctx) error {
+	log := zerolog.Ctx(c.UserContext())
 	var req RefreshTokenRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		handler.deps.Logger.Error().Err(err).Msg(ErrBadRequest.Error())
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		log.Error().Err(err).Msg("Failed to parse request body")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Errorf("failed to parse request body: %w", err).Error(),
+		})
 	}
 
 	tokenPair, err := handler.deps.AuthService.RefreshTokens(req.RefreshToken)
 	if err != nil {
-		handler.deps.Logger.Error().Err(err).Msg(ErrInvalidRefreshToken.Error())
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": ValidateError(err).Error()})
+		log.Error().Err(err).Msg("Invalid refresh token")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": fmt.Errorf("invalid refresh token: %w", err).Error(),
+		})
 	}
 
 	return c.JSON(fiber.Map{
