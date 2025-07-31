@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -20,12 +21,16 @@ import (
 func main() {
 	cfg := config.NewConfig()
 	database := db.NewDB(cfg)
+
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	migrations.Init(cfg)
 	app := fiber.New()
 
-	app.Use(zerolog.New(os.Stdout).With().Timestamp().Logger())
+	app.Use(fiberzerolog.New(fiberzerolog.Config{
+		Logger: &logger,
+	}))
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:  "*",
@@ -60,5 +65,8 @@ func main() {
 		UserService: userService,
 	})
 
-	app.Listen(":" + cfg.ServerConfig.Port)
+	logger.Info().Str("port", cfg.ServerConfig.Port).Msg("Starting server")
+	if err := app.Listen(":" + cfg.ServerConfig.Port); err != nil {
+		logger.Fatal().Err(err).Msg("Failed to start server")
+	}
 }

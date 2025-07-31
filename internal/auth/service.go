@@ -23,7 +23,7 @@ func NewAuthService(repo *AuthRepository, jwt *jwt.JWT) *AuthService {
 func (s *AuthService) Register(email, password string) error {
 	userExists, err := s.AuthRepository.FindUserByEmail(email)
 	if err != nil {
-		return fmt.Errorf("failed to find user by email: %w", err)
+		fmt.Println("user not found: %w", err)
 	}
 	if userExists != nil {
 		return fmt.Errorf("user already exists: %w", err)
